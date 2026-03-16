@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>My 3D Mobile Map</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.19.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.19.1/mapbox-gl.css" rel="stylesheet">
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
+
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095', 
+        center: [-7.730883, 54.829779], 
+        zoom: 14,
+        pitch: 62,
+        bearing: -20,
+        antialias: true
+    });
+
+    function addCustomLayers() {
+        // Add 3D Terrain
+        if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+                'type': 'raster-dem',
+                'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+                'tileSize': 512
+            });
+        }
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+        // Add Atmosphere/Fog
+        map.setFog({
+            'range': [0.5, 10],
+            'color': 'white',
+            'horizon-blend': 0.1
+        });
+    }
+
+    // Change suggested: Use 'load' to ensure all assets are ready
+    map.on('load', () => {
+        addCustomLayers();
+        
+        // Automatically find user location on start
+        geolocate.trigger();
+    });
+
+    // 1. ADD NAVIGATION CONTROLS (Top Right)
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // 2. ADD GEOLOCATION (Blue Dot)
+    const geolocate = new mapboxgl.GeolocateControl({
+        positionOptions: {
+            enableHighAccuracy: true
+        },
+        trackUserLocation: true,
+        showUserHeading: true,
+        showUserLocation: true
+    });
+
+    map.addControl(geolocate, 'top-right');
+</script>
+
+</body>
+</html>
