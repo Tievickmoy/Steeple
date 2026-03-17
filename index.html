@@ -10,7 +10,7 @@
 
     <style>
         html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #111; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; background-color: #111; }
 
         .mapboxgl-popup-content {
             background: #222 !important; 
@@ -37,28 +37,31 @@
             border: 1px solid #00d2ff;
             text-align: center;
             opacity: 1;
-            transition: opacity 1s ease-in-out;
+            transition: opacity 1s ease;
         }
     </style>
 </head>
 <body>
 
-<div id="mobile-hint">Tap trails for info & descriptions</div>
+<div id="mobile-hint">Tap trails for info</div>
 <div id="map"></div>
 
 <script>
+    // 1. TOKEN
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
+    // 2. INITIALIZE
     const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095', 
         center: [-7.730883, 54.829779], 
         zoom: 14,
         pitch: 62,
-        bearing: -20
+        bearing: -20,
+        antialias: true
     });
 
-    // Create the Geolocate Control
+    // 3. GEOLOCATE SETUP
     const geolocate = new mapboxgl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
@@ -69,11 +72,12 @@
     map.addControl(geolocate, 'top-right');
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    // 4. LOAD EVENTS
     map.on('load', () => {
-        // 1. AUTO-START LOCATION TRACKING
-        geolocate.trigger();
+        // Trigger GPS
+        setTimeout(() => { geolocate.trigger(); }, 1500);
 
-        // 2. HINT TIMER
+        // Hide Hint
         setTimeout(() => {
             const hint = document.getElementById('mobile-hint');
             if (hint) {
@@ -82,7 +86,7 @@
             }
         }, 4000);
 
-        // 3. 3D TERRAIN
+        // 3D Terrain
         map.addSource('mapbox-dem', {
             'type': 'raster-dem',
             'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -90,32 +94,7 @@
         });
         map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
 
-        // 4. CLICK INTERACTION (TOUCH BUFFER)
+        // Click Logic
         map.on('click', (e) => {
-            const width = 15;
-            const height = 15;
-            const features = map.queryRenderedFeatures([
-                [e.point.x - width / 2, e.point.y - height / 2],
-                [e.point.x + width / 2, e.point.y + height / 2]
-            ]);
-
-            if (features.length > 0) {
-                const target = features.find(f => f.properties.Description);
-                if (target) {
-                    new mapboxgl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(`
-                            <h3 style="margin:0; color:#00d2ff;">${target.properties.name || "Trail"}</h3>
-                            <p style="margin:10px 0 0 0; line-height:1.4;">${target.properties.Description}</p>
-                        `)
-                        .addTo(map);
-                }
-            }
-        });
-
-        map.resize();
-    });
-</script>
-
-</body>
-</html>
+            const bbox = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
+            const features = map.queryRenderedFeatures(bbox);
