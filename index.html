@@ -9,7 +9,7 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
 
     <style>
-        body { margin: 0; padding: 0; }
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #111; }
 
         .mapboxgl-popup-content {
@@ -22,6 +22,7 @@
         }
         .mapboxgl-popup-tip { border-top-color: #222 !important; }
 
+        /* Updated Mobile Hint with Opacity Transition */
         #mobile-hint {
             position: absolute; 
             bottom: 120px; 
@@ -36,6 +37,8 @@
             pointer-events: none; 
             border: 1px solid #00d2ff;
             text-align: center;
+            opacity: 1; /* Start visible */
+            transition: opacity 1s ease-in-out; /* Smooth fade effect */
         }
     </style>
 </head>
@@ -56,50 +59,53 @@
         bearing: -20
     });
 
+    // We use 'load' to ensure the map is ready before we start the timer
     map.on('load', () => {
-        // Simple 3D Terrain
-        map.addSource('mapbox-dem', {
-            'type': 'raster-dem',
-            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-            'tileSize': 512
-        });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-
-        // Hide hint after 4 seconds
+        
+        // 1. THE HINT TIMER FIX
         setTimeout(() => {
             const hint = document.getElementById('mobile-hint');
-            if (hint) hint.style.display = 'none';
-        }, 4000);
+            if (hint) {
+                hint.style.opacity = '0'; // Start the fade animation
+                
+                // Completely remove from screen after animation finishes
+                setTimeout(() => {
+                    hint.style.display = 'none';
+                }, 1000); 
+            }
+        }, 4000); // 4 seconds of visibility
 
-        // Optimized Click Logic
+        // 2. CLICK INTERACTION
         map.on('click', (e) => {
-            // Buffer for mobile fingers
-            const width = 10;
-            const height = 10;
+            const width = 15; // Increased buffer slightly for easier tapping
+            const height = 15;
             const features = map.queryRenderedFeatures([
                 [e.point.x - width / 2, e.point.y - height / 2],
                 [e.point.x + width / 2, e.point.y + height / 2]
             ]);
 
             if (features.length > 0) {
+                // Try to find the feature with 'Description'
                 const target = features.find(f => f.properties.Description);
                 if (target) {
                     new mapboxgl.Popup()
                         .setLngLat(e.lngLat)
                         .setHTML(`
                             <h3 style="margin:0; color:#00d2ff;">${target.properties.name || "Trail"}</h3>
-                            <p style="margin:10px 0 0 0;">${target.properties.Description}</p>
+                            <p style="margin:10px 0 0 0; line-height:1.4;">${target.properties.Description}</p>
                         `)
                         .addTo(map);
                 }
             }
         });
 
-        // Pointer Cursor
+        // 3. CURSOR FEEDBACK
         map.on('mousemove', (e) => {
             const features = map.queryRenderedFeatures(e.point);
             map.getCanvas().style.cursor = (features.length > 0) ? 'pointer' : '';
         });
+
+        map.resize();
     });
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
