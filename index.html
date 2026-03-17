@@ -4,97 +4,83 @@
     <meta charset="utf-8">
     <title>Donegal MTB Trails</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
-
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; background-color: #111; }
-
-        .mapboxgl-popup-content {
-            background: #222 !important; 
-            color: #fff !important;
-            border: 1px solid #00d2ff;
-            border-radius: 8px;
-            padding: 15px;
-            font-family: sans-serif;
-        }
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; background: #111; }
+        .mapboxgl-popup-content { background: #222 !important; color: #fff !important; border: 1px solid #00d2ff; border-radius: 8px; padding: 15px; font-family: sans-serif; }
         .mapboxgl-popup-tip { border-top-color: #222 !important; }
-
-        #mobile-hint {
-            position: absolute; 
-            bottom: 120px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 10; 
-            background: rgba(0,0,0,0.85); 
-            color: white; 
-            padding: 12px 24px; 
-            border-radius: 30px; 
-            font-size: 13px; 
-            pointer-events: none; 
-            border: 1px solid #00d2ff;
-            text-align: center;
-            opacity: 1;
-            transition: opacity 1s ease;
-        }
+        #mobile-hint { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; transition: opacity 1s; }
     </style>
 </head>
 <body>
-
-<div id="mobile-hint">Tap trails for info</div>
-<div id="map"></div>
-
+    <div id="mobile-hint">Tap trails for info</div>
+    <div id="map"></div>
 <script>
-    // 1. TOKEN
+    // YOUR TOKEN
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-    // 2. INITIALIZE
     const map = new mapboxgl.Map({
         container: 'map',
-        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095', 
-        center: [-7.730883, 54.829779], 
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095',
+        center: [-7.730883, 54.829779],
         zoom: 14,
-        pitch: 62,
-        bearing: -20,
-        antialias: true
+        pitch: 60,
+        bearing: -20
     });
 
-    // 3. GEOLOCATE SETUP
     const geolocate = new mapboxgl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
-        showUserHeading: true,
-        showUserLocation: true
+        showUserHeading: true
     });
 
     map.addControl(geolocate, 'top-right');
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // 4. LOAD EVENTS
     map.on('load', () => {
-        // Trigger GPS
-        setTimeout(() => { geolocate.trigger(); }, 1500);
+        console.log("Map engine started");
 
-        // Hide Hint
-        setTimeout(() => {
-            const hint = document.getElementById('mobile-hint');
-            if (hint) {
-                hint.style.opacity = '0';
-                setTimeout(() => { hint.style.display = 'none'; }, 1000);
-            }
-        }, 4000);
+        // Start GPS
+        setTimeout(() => { geolocate.trigger(); }, 2000);
 
-        // 3D Terrain
-        map.addSource('mapbox-dem', {
-            'type': 'raster-dem',
-            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-            'tileSize': 512
-        });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        // Fade Hint
+        setTimeout(() => { 
+            const h = document.getElementById('mobile-hint');
+            if(h) h.style.opacity = '0';
+        }, 5000);
 
-        // Click Logic
+        // Click logic with "Safety Filter"
         map.on('click', (e) => {
-            const bbox = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
-            const features = map.queryRenderedFeatures(bbox);
+            const features = map.queryRenderedFeatures([
+                [e.point.x - 12, e.point.y - 12],
+                [e.point.x + 12, e.point.y + 12]
+            ]);
+
+            if (features.length > 0) {
+                const f = features[0];
+                const p = f.properties;
+
+                // This logic ensures if 'Description' is missing, it won't crash
+                const trailName = p.name || p.Name || "MTB Trail";
+                const trailDesc = p.Description || p.description || "No description provided.";
+
+                // Only show popup if it's NOT a background/satellite layer
+                if (p.name || p.Description || p.description) {
+                    new mapboxgl.Popup()
+                        .setLngLat(e.lngLat)
+                        .setHTML('<h3 style="color:#00d2ff;margin:0">'+trailName+'</h3><p style="margin-top:10px;">'+trailDesc+'</p>')
+                        .addTo(map);
+                }
+            }
+        });
+
+        map.resize();
+    });
+
+    // CATCH ERRORS TO CONSOLE
+    map.on('error', (e) => { console.error("Mapbox Error:", e); });
+</script>
+</body>
+</html>
