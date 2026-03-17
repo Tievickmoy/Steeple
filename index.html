@@ -11,6 +11,24 @@
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        /* Professional Dark Popup Styling */
+        .mapboxgl-popup-content {
+            background: #222 !important; 
+            color: #fff !important;
+            border: 1px solid #00d2ff;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .mapboxgl-popup-tip {
+            border-top-color: #222 !important;
+        }
+        .mapboxgl-popup-close-button {
+            color: #fff;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
@@ -18,12 +36,12 @@
 <div id="map"></div>
 
 <script>
-
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
     const map = new mapboxgl.Map({
         container: 'map',
-        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095', 
+        // The timestamp at the end forces Mapbox to fetch the freshest version of your published style
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?version=' + Date.now(), 
         center: [-7.730883, 54.829779], 
         zoom: 14,
         pitch: 62,
@@ -31,8 +49,7 @@
         antialias: true
     });
 
-    function addCustomLayers() {
-        // Add 3D Terrain
+    function add3DEffects() {
         if (!map.getSource('mapbox-dem')) {
             map.addSource('mapbox-dem', {
                 'type': 'raster-dem',
@@ -41,37 +58,63 @@
             });
         }
         map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-
-        // Add Atmosphere/Fog
-        map.setFog({
-            'range': [0.5, 10],
-            'color': 'white',
-            'horizon-blend': 0.1
-        });
+        map.setFog({ 'range': [0.5, 10], 'color': 'white', 'horizon-blend': 0.1 });
     }
 
-    // Change suggested: Use 'load' to ensure all assets are ready
     map.on('load', () => {
-        addCustomLayers();
-        
-        // Automatically find user location on start
+        map.resize();
+        add3DEffects();
+
+        // --- SMART POPUP LOGIC ---
+        map.on('click', (e) => {
+            // queryRenderedFeatures looks at EVERYTHING under the mouse click
+            const features = map.queryRenderedFeatures(e.point);
+
+            if (features.length > 0) {
+                // Search the stack of layers for the first one that has a 'Description'
+                const targetFeature = features.find(f => f.properties.Description);
+
+                if (targetFeature) {
+                    const props = targetFeature.properties;
+                    const name = props.name || props.Name || "MTB Trail";
+                    const desc = props.Description;
+
+                    new mapboxgl.Popup()
+                        .setLngLat(e.lngLat)
+                        .setHTML(`
+                            <div style="min-width: 180px;">
+                                <h3 style="margin:0; color:#00d2ff; font-size:16px;">${name}</h3>
+                                <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
+                                <p style="margin:0; font-size:14px; line-height:1.5;">${desc}</p>
+                            </div>
+                        `)
+                        .addTo(map);
+                }
+            }
+        });
+
+        // Change cursor to pointer when hovering over any layer that contains a Description
+        map.on('mousemove', (e) => {
+            const features = map.queryRenderedFeatures(e.point);
+            const isHoveringData = features.some(f => f.properties.Description);
+            map.getCanvas().style.cursor = isHoveringData ? 'pointer' : '';
+        });
+
+        // Start user location tracker
         geolocate.trigger();
     });
 
-    // 1. ADD NAVIGATION CONTROLS (Top Right)
+    // Map Controls
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // 2. ADD GEOLOCATION (Blue Dot)
     const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: {
-            enableHighAccuracy: true
-        },
+        positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
         showUserHeading: true,
         showUserLocation: true
     });
-
     map.addControl(geolocate, 'top-right');
+
 </script>
 
 </body>
