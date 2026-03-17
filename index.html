@@ -22,7 +22,6 @@
         }
         .mapboxgl-popup-tip { border-top-color: #222 !important; }
 
-        /* Updated Mobile Hint with Opacity Transition */
         #mobile-hint {
             position: absolute; 
             bottom: 120px; 
@@ -37,14 +36,14 @@
             pointer-events: none; 
             border: 1px solid #00d2ff;
             text-align: center;
-            opacity: 1; /* Start visible */
-            transition: opacity 1s ease-in-out; /* Smooth fade effect */
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
         }
     </style>
 </head>
 <body>
 
-<div id="mobile-hint">Tap trails for info</div>
+<div id="mobile-hint">Tap trails for info & descriptions</div>
 <div id="map"></div>
 
 <script>
@@ -59,25 +58,41 @@
         bearing: -20
     });
 
-    // We use 'load' to ensure the map is ready before we start the timer
+    // Create the Geolocate Control
+    const geolocate = new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserHeading: true,
+        showUserLocation: true
+    });
+
+    map.addControl(geolocate, 'top-right');
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
     map.on('load', () => {
-        
-        // 1. THE HINT TIMER FIX
+        // 1. AUTO-START LOCATION TRACKING
+        geolocate.trigger();
+
+        // 2. HINT TIMER
         setTimeout(() => {
             const hint = document.getElementById('mobile-hint');
             if (hint) {
-                hint.style.opacity = '0'; // Start the fade animation
-                
-                // Completely remove from screen after animation finishes
-                setTimeout(() => {
-                    hint.style.display = 'none';
-                }, 1000); 
+                hint.style.opacity = '0';
+                setTimeout(() => { hint.style.display = 'none'; }, 1000);
             }
-        }, 4000); // 4 seconds of visibility
+        }, 4000);
 
-        // 2. CLICK INTERACTION
+        // 3. 3D TERRAIN
+        map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512
+        });
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+        // 4. CLICK INTERACTION (TOUCH BUFFER)
         map.on('click', (e) => {
-            const width = 15; // Increased buffer slightly for easier tapping
+            const width = 15;
             const height = 15;
             const features = map.queryRenderedFeatures([
                 [e.point.x - width / 2, e.point.y - height / 2],
@@ -85,7 +100,6 @@
             ]);
 
             if (features.length > 0) {
-                // Try to find the feature with 'Description'
                 const target = features.find(f => f.properties.Description);
                 if (target) {
                     new mapboxgl.Popup()
@@ -99,16 +113,8 @@
             }
         });
 
-        // 3. CURSOR FEEDBACK
-        map.on('mousemove', (e) => {
-            const features = map.queryRenderedFeatures(e.point);
-            map.getCanvas().style.cursor = (features.length > 0) ? 'pointer' : '';
-        });
-
         map.resize();
     });
-
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 </script>
 
 </body>
