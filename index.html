@@ -12,29 +12,31 @@
         html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; position: fixed; background: #000; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* Strava-Themed Popup Styling */
+        /* Popup Styling */
         .mapboxgl-popup-content { 
             background: #1a1a1a !important; 
             color: #fff !important; 
-            border: 1px solid #fc4c02; /* Strava Orange */
+            border: 1px solid #fc4c02; 
             border-radius: 12px; 
             padding: 15px; 
             font-family: 'Segoe UI', Tahoma, sans-serif; 
-            min-width: 220px;
+            min-width: 240px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .mapboxgl-popup-tip { border-top-color: #fc4c02 !important; }
         
-        .trail-title { color: #00d2ff; margin: 0; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .trail-desc { margin: 10px 0; font-size: 13px; line-height: 1.4; color: #ccc; }
+        /* Layout Hierarchy */
+        .trail-title { color: #00d2ff; margin: 0 0 12px 0; font-size: 19px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
         
-        .strava-data { margin-top: 12px; border-top: 1px solid #444; padding-top: 10px; background: rgba(252, 76, 2, 0.05); border-radius: 4px; padding: 8px; }
-        .s-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
-        .s-label { color: #888; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }
+        .strava-container { background: rgba(252, 76, 2, 0.1); border: 1px solid rgba(252, 76, 2, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+        .s-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
+        .s-label { color: #888; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; font-weight: bold; }
         .s-value { color: #fff; font-weight: bold; }
         .kom-val { color: #ffcc00; font-weight: bold; }
+
+        .trail-desc { margin: 0; font-size: 13px; line-height: 1.5; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
         
-        #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; margin-top: 10px; }
+        #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; text-align: center; padding: 10px 0; }
         #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; transition: opacity 1s; }
     </style>
 </head>
@@ -43,7 +45,6 @@
     <div id="map"></div>
 
 <script>
-    // --- CONFIGURATION ---
     const STRAVA_CONFIG = {
         clientId: '213106',
         clientSecret: '1a482e4253732794bd882dc298c7b7132bd3321f',
@@ -62,7 +63,6 @@
         antialias: true
     });
 
-    // --- UTILITIES ---
     async function getStravaToken() {
         const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
             method: 'POST',
@@ -78,97 +78,67 @@
         return d.access_token;
     }
 
-    // --- CONTROLS ---
-    const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true, timeout: 10000 },
-        trackUserLocation: true,
-        showUserHeading: true
-    });
+    const geolocate = new mapboxgl.GeolocateControl({ trackUserLocation: true, showUserHeading: true });
     map.addControl(geolocate, 'top-right');
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // --- MAP EVENTS ---
     map.on('load', () => {
-        // Trigger GPS and hide hint
         setTimeout(() => { geolocate.trigger(); }, 3000);
-        setTimeout(() => { 
-            const h = document.getElementById('mobile-hint');
-            if(h) h.style.opacity = '0';
-        }, 6000);
+        setTimeout(() => { document.getElementById('mobile-hint').style.opacity = '0'; }, 6000);
 
         map.on('click', async (e) => {
-            // 15px buffer for easier tapping on mobile
-            const features = map.queryRenderedFeatures([
-                [e.point.x - 15, e.point.y - 15],
-                [e.point.x + 15, e.point.y + 15]
-            ]);
-
+            const features = map.queryRenderedFeatures([[e.point.x - 15, e.point.y - 15], [e.point.x + 15, e.point.y + 15]]);
             if (features.length > 0) {
                 const p = features[0].properties;
-                
-                // Debug log to browser console to verify field names
-                console.log("Mapbox Properties:", p);
-
                 if (!p.name && !p.Description && !p.description) return;
 
-                // Create initial HTML content
-                let baseHtml = `<h3 class="trail-title">${p.name || "MTB Trail"}</h3>`;
-                baseHtml += `<p class="trail-desc">${p.Description || p.description || "No description available."}</p>`;
-
-                const popup = new mapboxgl.Popup()
-                    .setLngLat(e.lngLat)
-                    .setHTML(baseHtml)
-                    .addTo(map);
-
-                // --- LIVE STRAVA LOGIC ---
-                // We check if 'segment' property exists (case-sensitive)
+                // 1. Prepare HTML Pieces
+                const titleHtml = `<h3 class="trail-title">${p.name || "MTB Trail"}</h3>`;
+                const descHtml = `<div class="trail-desc">${p.Description || p.description || "No description available."}</div>`;
                 const segId = p.segment || p.Segment || p.SEGMENT;
 
+                const popup = new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(titleHtml + descHtml).addTo(map);
+
+                // 2. Inject Strava stats between Title and Description if Segment ID exists
                 if (segId) {
-                    popup.setHTML(baseHtml + `<div id="loading-msg">Syncing Strava live data...</div>`);
+                    popup.setHTML(titleHtml + `<div id="loading-msg">Syncing Strava live data...</div>` + descHtml);
                     
                     try {
                         const token = await getStravaToken();
                         const sRes = await fetch(`https://www.strava.com/api/v3/segments/${segId}`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
-                        
-                        if (!sRes.ok) throw new Error("Segment not found");
                         const s = await sRes.json();
 
                         const stravaHtml = `
-                            <div class="strava-data">
+                            <div class="strava-container">
                                 <div class="s-row"><span class="s-label">Distance</span><span class="s-value">${(s.distance/1000).toFixed(2)}km</span></div>
-                                <div class="s-row"><span class="s-label">Total Efforts</span><span class="s-value">${s.effort_count.toLocaleString()}</span></div>
+                                <div class="s-row"><span class="s-label">Efforts</span><span class="s-value">${s.effort_count.toLocaleString()}</span></div>
                                 <div class="s-row"><span class="s-label">KOM Record</span><span class="kom-val">${s.xoms?.kom || 'Private'}</span></div>
-                                <div style="text-align:center; margin-top:8px;">
-                                    <a href="https://www.strava.com/segments/${segId}" target="_blank" style="color:#fc4c02; font-size:10px; text-decoration:none; font-weight:bold;">VIEW ON STRAVA ↗</a>
+                                <div style="text-align:center; margin-top:8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+                                    <a href="https://www.strava.com/segments/${segId}" target="_blank" style="color:#fc4c02; font-size:10px; text-decoration:none; font-weight:bold;">OPEN IN STRAVA ↗</a>
                                 </div>
                             </div>
                         `;
-                        popup.setHTML(baseHtml + stravaHtml);
+
+                        // Render the final order: Name -> Strava -> Description
+                        popup.setHTML(titleHtml + stravaHtml + descHtml);
                     } catch (err) {
-                        console.error("Strava Error:", err);
-                        const errorMsg = document.getElementById('loading-msg');
-                        if (errorMsg) errorMsg.innerText = "Strava data temporarily unavailable";
+                        console.error(err);
+                        popup.setHTML(titleHtml + `<div id="loading-msg" style="color:#666;">Strava stats offline</div>` + descHtml);
                     }
                 }
             }
         });
 
-        // Change cursor to pointer when hovering over a trail (Desktop)
         map.on('mousemove', (e) => {
-            const features = map.queryRenderedFeatures(e.point);
-            map.getCanvas().style.cursor = features.length ? 'pointer' : '';
+            const f = map.queryRenderedFeatures(e.point);
+            map.getCanvas().style.cursor = f.length ? 'pointer' : '';
         });
-
         map.resize();
     });
 
-    // Error Handling for GPS
-    geolocate.on('error', (e) => {
-        if (e.error.code === 1) alert("Location denied. Please enable GPS in your browser settings.");
-    });
+    geolocate.on('error', (e) => { if (e.error.code === 1) alert("Location denied. Reset browser permissions."); });
 </script>
 </body>
 </html>
