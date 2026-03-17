@@ -12,25 +12,18 @@
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-        /* Professional Dark Popup Styling */
         .mapboxgl-popup-content {
             background: #222 !important; 
             color: #fff !important;
             border: 1px solid #00d2ff;
             border-radius: 8px;
             padding: 15px;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: sans-serif;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        .mapboxgl-popup-tip {
-            border-top-color: #222 !important;
-        }
-        .mapboxgl-popup-close-button {
-            color: #fff;
-            padding: 5px;
-        }
+        .mapboxgl-popup-tip { border-top-color: #222 !important; }
+        .mapboxgl-popup-close-button { color: #fff; padding: 5px; }
 
-        /* Mobile Hint Styling */
         #mobile-hint {
             position: absolute; 
             bottom: 120px; 
@@ -44,9 +37,8 @@
             font-size: 13px; 
             pointer-events: none; 
             border: 1px solid #00d2ff;
-            transition: opacity 1.5s ease; /* Smooth fade out */
+            transition: opacity 1.5s ease;
             text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -56,12 +48,13 @@
 <div id="map"></div>
 
 <script>
+    // Access Token
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
+    // Initialize Map
     const map = new mapboxgl.Map({
         container: 'map',
-        // version=Date.now() ensures the latest trail colors are always pulled
-        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?version=' + Date.now(), 
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095', 
         center: [-7.730883, 54.829779], 
         zoom: 14,
         pitch: 62,
@@ -69,7 +62,39 @@
         antialias: true
     });
 
+    // 3D Terrain Function
     function add3DEffects() {
         if (!map.getSource('mapbox-dem')) {
             map.addSource('mapbox-dem', {
-                '
+                'type': 'raster-dem',
+                'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+                'tileSize': 512
+            });
+        }
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        map.setFog({ 'range': [0.5, 10], 'color': 'white', 'horizon-blend': 0.1 });
+    }
+
+    map.on('load', () => {
+        add3DEffects();
+
+        // Fade out hint
+        setTimeout(() => {
+            const hint = document.getElementById('mobile-hint');
+            if (hint) {
+                hint.style.opacity = '0';
+                setTimeout(() => { hint.style.display = 'none'; }, 1500);
+            }
+        }, 4000);
+
+        // Click Logic with Touch Buffer
+        map.on('click', (e) => {
+            const bbox = [
+                [e.point.x - 5, e.point.y - 5],
+                [e.point.x + 5, e.point.y + 5]
+            ];
+            
+            const features = map.queryRenderedFeatures(bbox);
+
+            if (features.length > 0) {
+                // Find feature
