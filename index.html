@@ -12,7 +12,7 @@
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-        
+        /* Professional Dark Popup Styling */
         .mapboxgl-popup-content {
             background: #222 !important; 
             color: #fff !important;
@@ -29,23 +29,28 @@
             color: #fff;
             padding: 5px;
         }
+
+        /* Mobile Hint Styling */
+        #mobile-hint {
+            position: absolute; 
+            bottom: 100px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 10; 
+            background: rgba(0,0,0,0.8); 
+            color: white; 
+            padding: 10px 20px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            pointer-events: none; 
+            border: 1px solid #00d2ff;
+            transition: opacity 1s ease; /* Makes it fade out smoothly */
+        }
     </style>
 </head>
-
-<div id="mobile-hint" style="position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-size: 12px; pointer-events: none; border: 1px solid #00d2ff;">
-    Tap trails for descriptions
-</div>
-
-    map.on('load', () => {
-    setTimeout(() => {
-        const hint = document.getElementById('mobile-hint');
-        if (hint) hint.style.display = 'none';
-    }, 5000);
-});
-
-    
 <body>
 
+<div id="mobile-hint">Tap trails for descriptions</div>
 <div id="map"></div>
 
 <script>
@@ -53,7 +58,6 @@
 
     const map = new mapboxgl.Map({
         container: 'map',
-        
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?version=' + Date.now(), 
         center: [-7.730883, 54.829779], 
         zoom: 14,
@@ -78,13 +82,24 @@
         map.resize();
         add3DEffects();
 
-        
+        // Timer to hide the mobile hint after 5 seconds
+        setTimeout(() => {
+            const hint = document.getElementById('mobile-hint');
+            if (hint) hint.style.opacity = '0'; // Fades it out
+            setTimeout(() => { if(hint) hint.style.display = 'none'; }, 1000); // Removes it from layout
+        }, 5000);
+
+        // Click interaction for Popups
         map.on('click', (e) => {
+            // Mobile Optimization: Increase click area to 10px so thumbs can hit lines easier
+            const bbox = [
+                [e.point.x - 5, e.point.y - 5],
+                [e.point.x + 5, e.point.y + 5]
+            ];
             
-            const features = map.queryRenderedFeatures(e.point);
+            const features = map.queryRenderedFeatures(bbox);
 
             if (features.length > 0) {
-                
                 const targetFeature = features.find(f => f.properties.Description);
 
                 if (targetFeature) {
@@ -106,18 +121,17 @@
             }
         });
 
-        
+        // Hover cursor change
         map.on('mousemove', (e) => {
             const features = map.queryRenderedFeatures(e.point);
             const isHoveringData = features.some(f => f.properties.Description);
             map.getCanvas().style.cursor = isHoveringData ? 'pointer' : '';
         });
 
-        
         geolocate.trigger();
     });
 
-    
+    // Navigation Controls
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     const geolocate = new mapboxgl.GeolocateControl({
