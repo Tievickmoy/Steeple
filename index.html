@@ -33,24 +33,26 @@
         /* Mobile Hint Styling */
         #mobile-hint {
             position: absolute; 
-            bottom: 100px; 
+            bottom: 120px; 
             left: 50%; 
             transform: translateX(-50%); 
             z-index: 10; 
-            background: rgba(0,0,0,0.8); 
+            background: rgba(0,0,0,0.85); 
             color: white; 
-            padding: 10px 20px; 
-            border-radius: 20px; 
-            font-size: 12px; 
+            padding: 12px 24px; 
+            border-radius: 30px; 
+            font-size: 13px; 
             pointer-events: none; 
             border: 1px solid #00d2ff;
-            transition: opacity 1s ease; /* Makes it fade out smoothly */
+            transition: opacity 1.5s ease; /* Smooth fade out */
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
 
-<div id="mobile-hint">Tap trails for descriptions</div>
+<div id="mobile-hint">Tap trails for info & descriptions</div>
 <div id="map"></div>
 
 <script>
@@ -58,6 +60,7 @@
 
     const map = new mapboxgl.Map({
         container: 'map',
+        // version=Date.now() ensures the latest trail colors are always pulled
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?version=' + Date.now(), 
         center: [-7.730883, 54.829779], 
         zoom: 14,
@@ -69,80 +72,4 @@
     function add3DEffects() {
         if (!map.getSource('mapbox-dem')) {
             map.addSource('mapbox-dem', {
-                'type': 'raster-dem',
-                'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-                'tileSize': 512
-            });
-        }
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-        map.setFog({ 'range': [0.5, 10], 'color': 'white', 'horizon-blend': 0.1 });
-    }
-
-    map.on('load', () => {
-        map.resize();
-        add3DEffects();
-
-        // Timer to hide the mobile hint after 5 seconds
-        setTimeout(() => {
-            const hint = document.getElementById('mobile-hint');
-            if (hint) hint.style.opacity = '0'; // Fades it out
-            setTimeout(() => { if(hint) hint.style.display = 'none'; }, 1000); // Removes it from layout
-        }, 5000);
-
-        // Click interaction for Popups
-        map.on('click', (e) => {
-            // Mobile Optimization: Increase click area to 10px so thumbs can hit lines easier
-            const bbox = [
-                [e.point.x - 5, e.point.y - 5],
-                [e.point.x + 5, e.point.y + 5]
-            ];
-            
-            const features = map.queryRenderedFeatures(bbox);
-
-            if (features.length > 0) {
-                const targetFeature = features.find(f => f.properties.Description);
-
-                if (targetFeature) {
-                    const props = targetFeature.properties;
-                    const name = props.name || props.Name || "MTB Trail";
-                    const desc = props.Description;
-
-                    new mapboxgl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(`
-                            <div style="min-width: 180px;">
-                                <h3 style="margin:0; color:#00d2ff; font-size:16px;">${name}</h3>
-                                <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
-                                <p style="margin:0; font-size:14px; line-height:1.5;">${desc}</p>
-                            </div>
-                        `)
-                        .addTo(map);
-                }
-            }
-        });
-
-        // Hover cursor change
-        map.on('mousemove', (e) => {
-            const features = map.queryRenderedFeatures(e.point);
-            const isHoveringData = features.some(f => f.properties.Description);
-            map.getCanvas().style.cursor = isHoveringData ? 'pointer' : '';
-        });
-
-        geolocate.trigger();
-    });
-
-    // Navigation Controls
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-        showUserLocation: true
-    });
-    map.addControl(geolocate, 'top-right');
-
-</script>
-
-</body>
-</html>
+                '
