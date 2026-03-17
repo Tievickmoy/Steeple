@@ -12,7 +12,7 @@
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-        /* Professional Dark Popup Styling */
+        
         .mapboxgl-popup-content {
             background: #222 !important; 
             color: #fff !important;
@@ -40,7 +40,7 @@
 
     const map = new mapboxgl.Map({
         container: 'map',
-        // The timestamp at the end forces Mapbox to fetch the freshest version of your published style
+        
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?version=' + Date.now(), 
         center: [-7.730883, 54.829779], 
         zoom: 14,
@@ -65,13 +65,13 @@
         map.resize();
         add3DEffects();
 
-        // --- SMART POPUP LOGIC ---
+        
         map.on('click', (e) => {
-            // queryRenderedFeatures looks at EVERYTHING under the mouse click
+            
             const features = map.queryRenderedFeatures(e.point);
 
             if (features.length > 0) {
-                // Search the stack of layers for the first one that has a 'Description'
+                
                 const targetFeature = features.find(f => f.properties.Description);
 
                 if (targetFeature) {
@@ -93,18 +93,18 @@
             }
         });
 
-        // Change cursor to pointer when hovering over any layer that contains a Description
+        
         map.on('mousemove', (e) => {
             const features = map.queryRenderedFeatures(e.point);
             const isHoveringData = features.some(f => f.properties.Description);
             map.getCanvas().style.cursor = isHoveringData ? 'pointer' : '';
         });
 
-        // Start user location tracker
+        
         geolocate.trigger();
     });
 
-    // Map Controls
+    
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     const geolocate = new mapboxgl.GeolocateControl({
