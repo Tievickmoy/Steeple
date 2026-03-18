@@ -2,38 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Donegal MTB Trails | Universal Embed Fix</title>
+    <title>Donegal MTB Trails | Final Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
 
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; position: fixed; background: #000; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
         
-        /* User Prompt */
-        #mobile-hint { 
-            position: absolute; 
-            bottom: 40px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 10; 
-            background: rgba(0,0,0,0.9); 
-            color: #00d2ff; 
-            padding: 12px 24px; 
-            border-radius: 30px; 
-            font-size: 14px; 
-            font-weight: bold;
-            pointer-events: none; 
-            border: 1px solid #fc4c02; 
-            text-align: center; 
-            transition: opacity 1s ease;
-            font-family: 'Segoe UI', sans-serif;
-        }
-
-        /* Popup Styling */
-        .mapboxgl-popup { max-width: 320px !important; z-index: 100; }
+        .mapboxgl-popup { max-width: 320px !important; }
         .mapboxgl-popup-content { 
             background: #1a1a1a !important; 
             color: #fff !important; 
@@ -43,47 +22,39 @@
             font-family: 'Segoe UI', sans-serif; 
         }
 
-        /* The Embed Container */
         .video-wrapper {
             position: relative;
-            padding-bottom: 177.77%; /* Vertical 9:16 for Shorts */
+            padding-bottom: 177.77%; /* 9:16 Shorts Ratio */
             height: 0;
             overflow: hidden;
             border-radius: 8px;
             margin: 12px 0;
             background: #000;
-            border: 1px solid #333;
         }
-        .is-normal-video { padding-bottom: 56.25%; } /* Horizontal 16:9 */
 
         .video-wrapper iframe {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%; border: 0;
         }
 
-        .trail-title { color: #00d2ff; margin: 0; font-size: 19px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
-        .trail-desc { margin-top: 10px; font-size: 13px; color: #ccc; line-height: 1.4; }
-        
+        .trail-title { color: #00d2ff; margin: 0; font-size: 18px; font-weight: 800; }
         .watch-link {
             display: block;
             text-align: center;
-            background: #fc4c02;
-            color: #fff;
+            background: #333;
+            color: #00d2ff;
             text-decoration: none;
             padding: 10px;
-            border-radius: 6px;
+            border-radius: 5px;
             font-size: 12px;
             font-weight: bold;
-            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="mobile-hint">Tap trails for info & video</div>
     <div id="map"></div>
 
 <script>
-    // Configuration
     const STRAVA_CONFIG = {
         clientId: '213106',
         clientSecret: '1a482e4253732794bd882dc298c7b7132bd3321f',
@@ -92,10 +63,8 @@
 
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-    // This function specifically handles the "Shorts to Embed" conversion
     function getYoutubeId(url) {
         if (!url) return null;
-        // Regex looks for the 11 character ID after v= or shorts/ or youtu.be/
         const match = String(url).match(/(?:v=|shorts\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/i);
         return (match && match[1]) ? match[1] : null;
     }
@@ -105,39 +74,30 @@
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
         center: [-7.730883, 54.829779],
         zoom: 14,
-        pitch: 50,
-        bearing: -20
+        pitch: 45
     });
 
     map.on('load', () => {
+        // Fix for laptop rendering: forces map to detect screen size correctly
         map.resize();
 
-        // Fade out hint
-        setTimeout(() => {
-            const hint = document.getElementById('mobile-hint');
-            if (hint) hint.style.opacity = '0';
-        }, 6000);
-
-        map.on('click', async (e) => {
+        map.on('click', (e) => {
             const features = map.queryRenderedFeatures(e.point);
             if (!features.length) return;
 
             const p = features[0].properties;
-            const rawUrl = p.Youtube || p.youtube || "";
-            const videoId = getYoutubeId(rawUrl);
+            const videoId = getYoutubeId(p.Youtube || p.youtube);
             
             let videoHtml = '';
             if (videoId) {
-                const isShort = rawUrl.toLowerCase().includes('shorts');
-                const ratioClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
-                
-                // We MANUALLY construct the /embed/ URL here to fix the issue you found
+                // 'enablejsapi=1' and 'origin' help bypass browser security blocks
+                const origin = window.location.origin;
                 videoHtml = `
-                    <div class="${ratioClass}">
+                    <div class="video-wrapper">
                         <iframe 
-                            src="https://www.youtube.com/embed/${videoId}?rel=0&autoplay=0" 
+                            src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${origin}" 
                             allowfullscreen 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allow="autoplay; encrypted-media"
                             referrerpolicy="strict-origin-when-cross-origin">
                         </iframe>
                     </div>
@@ -145,22 +105,10 @@
                 `;
             }
 
-            const popupContent = `
-                <h3 class="trail-title">${p.name || 'MTB Trail'}</h3>
-                ${videoHtml}
-                <div class="trail-desc">${p.Description || p.description || 'No description available.'}</div>
-            `;
-
-            new mapboxgl.Popup({ offset: 15, anchor: 'bottom' })
+            new mapboxgl.Popup({ offset: 15 })
                 .setLngLat(e.lngLat)
-                .setHTML(popupContent)
+                .setHTML(`<h3 class="trail-title">${p.name || 'Trail'}</h3>` + videoHtml)
                 .addTo(map);
-        });
-
-        // Pointer cursor
-        map.on('mousemove', (e) => {
-            const f = map.queryRenderedFeatures(e.point);
-            map.getCanvas().style.cursor = f.length ? 'pointer' : '';
         });
     });
 </script>
