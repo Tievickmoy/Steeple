@@ -2,55 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Donegal MTB Trails | GitHub Version</title>
+    <title>Donegal MTB Trails | 3D Scaling Popups</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
 
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; position: fixed; background: #000; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* Mobile Prompt */
-        #mobile-hint { 
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
-            z-index: 10; background: rgba(0,0,0,0.85); color: #00d2ff; 
-            padding: 12px 24px; border-radius: 30px; font-size: 14px; 
-            font-weight: bold; pointer-events: none; border: 1px solid #fc4c02; 
-            text-align: center; transition: opacity 1s ease;
-        }
-
         /* Popup Styling */
-        .mapboxgl-popup { max-width: 320px !important; z-index: 100; }
-        .mapboxgl-popup-content { 
-            background: #1a1a1a !important; color: #fff !important; 
-            border: 1px solid #fc4c02; border-radius: 12px; padding: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        .mapboxgl-popup { 
+            max-width: 320px !important; 
+            z-index: 100; 
+            /* Crucial for scaling from the trail point */
+            transform-origin: bottom center; 
+            transition: transform 0.05s linear; 
         }
 
-        .video-wrapper {
-            position: relative; padding-bottom: 177.77%; /* 9:16 Shorts Ratio */
-            height: 0; overflow: hidden; border-radius: 8px; margin: 12px 0; background: #000;
+        .mapboxgl-popup-content { 
+            background: #1a1a1a !important; 
+            color: #fff !important; 
+            border: 2px solid #fc4c02; 
+            border-radius: 12px; 
+            padding: 15px; 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            max-height: 500px; 
+            overflow-y: auto;
         }
+
+        /* Responsive Video Container */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 177.77%; /* Shorts 9:16 */
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            margin: 12px 0;
+            background: #000;
+        }
+        .is-normal-video { padding-bottom: 56.25%; } /* Normal 16:9 */
 
         .video-wrapper iframe {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%; border: 0;
         }
 
-        .trail-title { color: #00d2ff; margin: 0; font-size: 18px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .trail-title { color: #00d2ff; margin: 0 0 10px 0; font-size: 18px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .strava-container { background: rgba(252, 76, 2, 0.15); border: 1px solid rgba(252, 76, 2, 0.4); border-radius: 8px; padding: 10px; margin-bottom: 5px; }
+        .s-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+        .s-label { color: #aaa; text-transform: uppercase; font-size: 9px; font-weight: bold; }
+        .s-value { color: #fff; font-weight: bold; }
+        .kom-val { color: #ffcc00; }
+        .trail-desc { margin-top: 10px; font-size: 13px; line-height: 1.4; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
         
-        .watch-link {
-            display: block; text-align: center; background: #333; color: #00d2ff; 
-            text-decoration: none; padding: 10px; border-radius: 5px; 
-            font-size: 12px; font-weight: bold; margin-top: 5px; border: 1px solid #444;
-        }
-
-        .trail-desc { font-size: 12px; color: #ccc; margin-top: 10px; line-height: 1.4; }
+        #loading-msg { color: #fc4c02; font-size: 11px; text-align: center; padding: 5px 0; }
+        #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; border: 1px solid #00d2ff; pointer-events: none; transition: opacity 1s; }
     </style>
 </head>
 <body>
-    <div id="mobile-hint">Tap trails for info & video</div>
+    <div id="mobile-hint">Tap trails for info</div>
     <div id="map"></div>
 
 <script>
@@ -62,10 +75,13 @@
 
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-    // Extraction logic
+    let activePopup = null;
+    let baseZoom = 14; // Tracks the zoom level when the popup opened
+
     function getYoutubeId(url) {
         if (!url) return null;
-        const match = String(url).match(/(?:v=|shorts\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/i);
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|shorts\/|watch\?v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
         return (match && match[1]) ? match[1] : null;
     }
 
@@ -74,58 +90,112 @@
         style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
         center: [-7.730883, 54.829779],
         zoom: 14,
-        pitch: 45,
-        bearing: -10
+        pitch: 60,
+        bearing: -20,
+        antialias: true
+    });
+
+    async function getStravaToken() {
+        const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: STRAVA_CONFIG.clientId,
+                client_secret: STRAVA_CONFIG.clientSecret,
+                refresh_token: STRAVA_CONFIG.refreshToken,
+                grant_type: 'refresh_token'
+            })
+        });
+        const d = await res.json();
+        return d.access_token;
+    }
+
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // SCALING LOGIC: Grows/Shrinks popup based on map zoom
+    map.on('zoom', () => {
+        const popEl = document.querySelector('.mapboxgl-popup');
+        if (popEl) {
+            const currentZoom = map.getZoom();
+            // Scale formula: 1.0 at the zoom level when opened
+            let scale = Math.pow(2, currentZoom - baseZoom);
+            
+            // Set limits so it doesn't disappear or get too massive
+            scale = Math.max(0.4, Math.min(scale, 1.8));
+            
+            // Mapbox uses translate(-50%, -15px) by default for 'bottom' anchor
+            popEl.style.transform = `translate(-50%, -15px) scale(${scale})`;
+        }
     });
 
     map.on('load', () => {
-        // Essential for GitHub/Laptop rendering
-        map.resize();
+        setTimeout(() => { document.getElementById('mobile-hint').style.opacity = '0'; }, 4000);
 
-        // Fade out hint
-        setTimeout(() => {
-            const hint = document.getElementById('mobile-hint');
-            if (hint) hint.style.opacity = '0';
-        }, 5000);
+        map.on('click', async (e) => {
+            const features = map.queryRenderedFeatures([[e.point.x - 15, e.point.y - 15], [e.point.x + 15, e.point.y + 15]]);
+            if (features.length > 0) {
+                const p = features[0].properties;
+                if (!p.name) return;
 
-        map.on('click', (e) => {
-            const features = map.queryRenderedFeatures(e.point);
-            if (!features.length) return;
+                // Set the reference zoom level for scaling
+                baseZoom = map.getZoom();
 
-            const p = features[0].properties;
-            const videoId = getYoutubeId(p.Youtube || p.youtube);
-            
-            let videoHtml = '';
-            if (videoId) {
-                // For GitHub Pages, we use the bare embed URL with no-referrer
-                // This is the most compatible way to bypass CSP blocks
-                videoHtml = `
-                    <div class="video-wrapper">
-                        <iframe 
-                            src="https://www.youtube.com/embed/${videoId}" 
-                            title="YouTube video player"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                            referrerpolicy="no-referrer"
-                            allowfullscreen>
-                        </iframe>
-                    </div>
-                    <a href="https://youtube.com/shorts/${videoId}" target="_blank" class="watch-link">Open in YouTube App ↗</a>
-                `;
+                map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
+
+                const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
+                const descHtml = `<div class="trail-desc">${p.Description || p.description || ""}</div>`;
+                const segId = p.segment || p.Segment || p.SEGMENT;
+                
+                const ytField = p.Youtube || p.youtube || p.YOUTUBE;
+                const videoId = getYoutubeId(ytField);
+                let videoHtml = '';
+
+                if (videoId) {
+                    const isShort = ytField.toString().includes('shorts');
+                    const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
+                    videoHtml = `
+                        <div class="${wrapperClass}">
+                            <iframe 
+                                src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0&enablejsapi=1&origin=${window.location.origin}" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation allow-presentation"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    `;
+                }
+
+                if (activePopup) activePopup.remove();
+
+                activePopup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15, maxWidth: 'none' })
+                    .setLngLat(e.lngLat)
+                    .setHTML(titleHtml + videoHtml + descHtml)
+                    .addTo(map);
+
+                if (segId) {
+                    activePopup.setHTML(titleHtml + `<div id="loading-msg">Syncing Strava...</div>` + videoHtml + descHtml);
+                    try {
+                        const token = await getStravaToken();
+                        const sRes = await fetch(`https://www.strava.com/api/v3/segments/${segId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const s = await sRes.json();
+                        const stravaHtml = `
+                            <div class="strava-container">
+                                <div class="s-row"><span class="s-label">Dist</span><span class="s-value">${(s.distance/1000).toFixed(2)}km</span></div>
+                                <div class="s-row"><span class="s-label">Efforts</span><span class="s-value">${s.effort_count.toLocaleString()}</span></div>
+                                <div class="s-row"><span class="s-label">KOM</span><span class="kom-val">${s.xoms?.kom || 'N/A'}</span></div>
+                            </div>
+                        `;
+                        activePopup.setHTML(titleHtml + stravaHtml + videoHtml + descHtml);
+                    } catch (err) {
+                        activePopup.setHTML(titleHtml + videoHtml + descHtml);
+                    }
+                }
             }
-
-            const description = p.Description || p.description || "";
-
-            new mapboxgl.Popup({ offset: 15, anchor: 'bottom' })
-                .setLngLat(e.lngLat)
-                .setHTML(`
-                    <h3 class="trail-title">${p.name || 'Trail'}</h3>
-                    ${videoHtml}
-                    <div class="trail-desc">${description}</div>
-                `)
-                .addTo(map);
         });
 
-        // Pointer cursor hover
         map.on('mousemove', (e) => {
             const f = map.queryRenderedFeatures(e.point);
             map.getCanvas().style.cursor = f.length ? 'pointer' : '';
