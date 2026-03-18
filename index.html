@@ -108,20 +108,11 @@
     map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-//    map.on('load', () => {
-  //      setTimeout(() => { document.getElementById('mobile-hint').style.opacity = '0'; }, 5000);
+  map.on('load', () => {
+       setTimeout(() => { document.getElementById('mobile-hint').style.opacity = '0'; }, 5000);
 
 
-map.on('load', () => {
-    // This ensures Mapbox has finished drawing the trails 
-    // before it starts listening for your clicks.
-    map.on('click', (e) => {
-        // ... your click logic ...
-    });
-    
-    // Force a resize to make sure the map fills the laptop screen correctly
-    map.resize();
-});
+
 
         
 
