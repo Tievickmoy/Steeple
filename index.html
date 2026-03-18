@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Donegal MTB Trails</title>
+    <title>Donegal MTB Trails | Live Strava & Video</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
@@ -12,6 +12,8 @@
         html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; position: fixed; background: #000; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
         
+        /* Popup Styling & Positioning */
+        .mapboxgl-popup { max-width: 320px !important; z-index: 100; }
         .mapboxgl-popup-content { 
             background: #1a1a1a !important; 
             color: #fff !important; 
@@ -19,23 +21,46 @@
             border-radius: 12px; 
             padding: 15px; 
             font-family: 'Segoe UI', Tahoma, sans-serif; 
-            min-width: 240px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-height: 500px; /* Increased for video height */
+            overflow-y: auto;
         }
-        .mapboxgl-popup-tip { border-top-color: #fc4c02 !important; }
-        
-  
+
+        /* Responsive Video Container (9:16 for Shorts) */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 177.77%; 
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            margin: 12px 0;
+            background: #000;
+            border: 1px solid #333;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        /* Layout Hierarchy */
         .trail-title { color: #00d2ff; margin: 0 0 12px 0; font-size: 19px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
-        
-        .strava-container { background: rgba(252, 76, 2, 0.1); border: 1px solid rgba(252, 76, 2, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+        .strava-container { background: rgba(252, 76, 2, 0.1); border: 1px solid rgba(252, 76, 2, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 5px; }
         .s-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
         .s-label { color: #888; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; font-weight: bold; }
         .s-value { color: #fff; font-weight: bold; }
         .kom-val { color: #ffcc00; font-weight: bold; }
-
-        .trail-desc { margin: 0; font-size: 13px; line-height: 1.5; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
+        .trail-desc { margin: 12px 0 0 0; font-size: 13px; line-height: 1.5; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
         
-        #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; text-align: center; padding: 10px 0; }
+        /* Custom Scrollbar */
+        .mapboxgl-popup-content::-webkit-scrollbar { width: 6px; }
+        .mapboxgl-popup-content::-webkit-scrollbar-track { background: #1a1a1a; }
+        .mapboxgl-popup-content::-webkit-scrollbar-thumb { background: #fc4c02; border-radius: 10px; }
+
+        #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; text-align: center; padding: 5px 0; }
         #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; transition: opacity 1s; }
     </style>
 </head>
@@ -91,24 +116,40 @@
                 const p = features[0].properties;
                 if (!p.name && !p.Description && !p.description) return;
 
-                // 1. Prepare HTML Pieces
+                // Move map to center the click point with an offset for the tall popup
+                map.flyTo({ center: e.lngLat, offset: [0, 100], speed: 0.6 });
+
                 const titleHtml = `<h3 class="trail-title">${p.name || "MTB Trail"}</h3>`;
                 const descHtml = `<div class="trail-desc">${p.Description || p.description || "No description available."}</div>`;
                 const segId = p.segment || p.Segment || p.SEGMENT;
+                
+                // Video ID: -MW27NIbE9c
+                const videoHtml = `
+                    <div class="video-wrapper">
+                        <iframe 
+                            src="https://www.youtube.com/embed/-MW27NIbE9c?rel=0" 
+                            title="YouTube Shorts player" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            referrerpolicy="strict-origin-when-cross-origin" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                `;
 
-                const popup = new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(titleHtml + descHtml).addTo(map);
+                const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
+                    .setLngLat(e.lngLat)
+                    .setHTML(titleHtml + videoHtml + descHtml)
+                    .addTo(map);
 
-                // 2. Inject Strava stats between Title and Description if Segment ID exists
                 if (segId) {
-                    popup.setHTML(titleHtml + `<div id="loading-msg">Syncing Strava live data...</div>` + descHtml);
-                    
+                    popup.setHTML(titleHtml + `<div id="loading-msg">Syncing Strava stats...</div>` + videoHtml + descHtml);
                     try {
                         const token = await getStravaToken();
                         const sRes = await fetch(`https://www.strava.com/api/v3/segments/${segId}`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         const s = await sRes.json();
-
                         const stravaHtml = `
                             <div class="strava-container">
                                 <div class="s-row"><span class="s-label">Distance</span><span class="s-value">${(s.distance/1000).toFixed(2)}km</span></div>
@@ -119,12 +160,10 @@
                                 </div>
                             </div>
                         `;
-
-                    
-                        popup.setHTML(titleHtml + stravaHtml + descHtml);
+                        // FINAL ORDER: Name -> Strava -> Video -> Description
+                        popup.setHTML(titleHtml + stravaHtml + videoHtml + descHtml);
                     } catch (err) {
-                        console.error(err);
-                        popup.setHTML(titleHtml + `<div id="loading-msg" style="color:#666;">Strava stats offline</div>` + descHtml);
+                        popup.setHTML(titleHtml + videoHtml + descHtml);
                     }
                 }
             }
