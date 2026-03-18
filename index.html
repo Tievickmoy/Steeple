@@ -2,44 +2,190 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Donegal MTB Trails | Fixed Version</title>
+    <title>Donegal MTB Trails | Universal Video Support</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
-    <style>
-        /* Essential Map Reset */
-        html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
 
-        /* Stable Popup Styling */
-        .mapboxgl-popup { z-index: 100; width: 280px; }
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; position: fixed; background: #000; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        /* Popup Styling */
+        .mapboxgl-popup { max-width: 320px !important; z-index: 100; }
         .mapboxgl-popup-content { 
             background: #1a1a1a !important; 
             color: #fff !important; 
-            border: 2px solid #fc4c02; 
+            border: 1px solid #fc4c02; 
             border-radius: 12px; 
             padding: 15px; 
-            font-family: 'Arial', sans-serif; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-height: 520px; 
+            overflow-y: auto;
         }
-        
-        /* Video Container */
-        .video-wrapper { position: relative; padding-bottom: 177.77%; height: 0; overflow: hidden; border-radius: 8px; margin: 10px 0; background: #000; }
-        .is-normal-video { padding-bottom: 56.25%; }
-        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-        /* Typography */
-        .trail-title { color: #00d2ff; margin: 0 0 8px 0; font-size: 18px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .strava-container { background: rgba(252, 76, 2, 0.1); border: 1px solid #fc4c02; border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 12px; }
-        .s-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
-        .trail-desc { font-size: 13px; line-height: 1.4; color: #ccc; }
+        /* Responsive Video Container (Maintains 16:9 for normal or 9:16 for Shorts) */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 177.77%; /* Default to Shorts ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            margin: 12px 0;
+            background: #000;
+            border: 1px solid #333;
+        }
+        /* If it's a normal video (not a short), we adjust this via JS if needed, 
+           but 9:16 generally fits both safely in a narrow popup */
+        .is-normal-video { padding-bottom: 56.25%; } 
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .trail-title { color: #00d2ff; margin: 0 0 12px 0; font-size: 19px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .strava-container { background: rgba(252, 76, 2, 0.1); border: 1px solid rgba(252, 76, 2, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 5px; }
+        .s-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
+        .s-label { color: #888; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; font-weight: bold; }
+        .s-value { color: #fff; font-weight: bold; }
+        .kom-val { color: #ffcc00; font-weight: bold; }
+        .trail-desc { margin: 12px 0 0 0; font-size: 13px; line-height: 1.5; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
+        
+        .mapboxgl-popup-content::-webkit-scrollbar { width: 6px; }
+        .mapboxgl-popup-content::-webkit-scrollbar-thumb { background: #fc4c02; border-radius: 10px; }
+
+        #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; text-align: center; padding: 5px 0; }
+        #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; }
     </style>
 </head>
 <body>
+    <div id="mobile-hint">Tap trails for info</div>
     <div id="map"></div>
 
 <script>
-    mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
-
     const STRAVA_CONFIG = {
         clientId: '213106',
+        clientSecret: '1a482e4253732794bd882dc298c7b7132bd3321f',
+        refreshToken: '872351372af0ebffffaa1584f5eaac57b5c4c7ad'
+    };
+
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
+
+    // HELPER: Extracts Video ID from various YouTube URL formats
+    function getYoutubeId(url) {
+        if (!url) return null;
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|shorts\/|watch\?v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
+        return (match && match[1]) ? match[1] : null;
+    }
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    // Adding ?fresh=true at the end forces Mapbox to bypass the CDN cache
+    style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
+    center: [-7.730883, 54.829779],
+    zoom: 14,
+    pitch: 60,
+    bearing: -20,
+    antialias: true
+});
+
+    async function getStravaToken() {
+        const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: STRAVA_CONFIG.clientId,
+                client_secret: STRAVA_CONFIG.clientSecret,
+                refresh_token: STRAVA_CONFIG.refreshToken,
+                grant_type: 'refresh_token'
+            })
+        });
+        const d = await res.json();
+        return d.access_token;
+    }
+
+    map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    map.on('load', () => {
+        setTimeout(() => { document.getElementById('mobile-hint').style.opacity = '0'; }, 5000);
+
+        map.on('click', async (e) => {
+            const features = map.queryRenderedFeatures([[e.point.x - 15, e.point.y - 15], [e.point.x + 15, e.point.y + 15]]);
+            if (features.length > 0) {
+                const p = features[0].properties;
+                if (!p.name) return;
+
+                map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
+
+                const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
+                const descHtml = `<div class="trail-desc">${p.Description || p.description || ""}</div>`;
+                const segId = p.segment || p.Segment || p.SEGMENT;
+                
+                // Extract ID from the "Youtube" field
+                const videoId = getYoutubeId(p.Youtube || p.youtube);
+                let videoHtml = '';
+
+                if (videoId) {
+                    // Detect if it's a Short or Normal video to adjust the aspect ratio
+                    const isShort = (p.Youtube || p.youtube).includes('shorts');
+                    const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
+
+                    videoHtml = `
+                        <div class="${wrapperClass}">
+                            <iframe 
+                                src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0&enablejsapi=1&origin=${window.location.origin}" 
+                                title="YouTube player" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation allow-presentation"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    `;
+                }
+
+                const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
+                    .setLngLat(e.lngLat)
+                    .setHTML(titleHtml + videoHtml + descHtml)
+                    .addTo(map);
+
+                if (segId) {
+                    popup.setHTML(titleHtml + `<div id="loading-msg">Fetching Strava Data...</div>` + videoHtml + descHtml);
+                    try {
+                        const token = await getStravaToken();
+                        const sRes = await fetch(`https://www.strava.com/api/v3/segments/${segId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const s = await sRes.json();
+                        const stravaHtml = `
+                            <div class="strava-container">
+                                <div class="s-row"><span class="s-label">Dist</span><span class="s-value">${(s.distance/1000).toFixed(2)}km</span></div>
+                                <div class="s-row"><span class="s-label">Attempts</span><span class="s-value">${s.effort_count.toLocaleString()}</span></div>
+                                <div class="s-row"><span class="s-label">KOM</span><span class="kom-val">${s.xoms?.kom || 'N/A'}</span></div>
+                            </div>
+                        `;
+                        popup.setHTML(titleHtml + stravaHtml + videoHtml + descHtml);
+                    } catch (err) {
+                        popup.setHTML(titleHtml + videoHtml + descHtml);
+                    }
+                }
+            }
+        });
+
+        map.on('mousemove', (e) => {
+            const f = map.queryRenderedFeatures(e.point);
+            map.getCanvas().style.cursor = f.length ? 'pointer' : '';
+        });
+    });
+</script>
+</body>
+</html>
