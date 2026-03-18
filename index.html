@@ -26,10 +26,10 @@
             overflow-y: auto;
         }
 
-        /* Responsive Video Container (Maintains 16:9 for normal or 9:16 for Shorts) */
+        /* Responsive Video Container */
         .video-wrapper {
             position: relative;
-            padding-bottom: 177.77%; /* Default to Shorts ratio */
+            padding-bottom: 177.77%; /* Shorts 9:16 Ratio */
             height: 0;
             overflow: hidden;
             border-radius: 8px;
@@ -37,9 +37,7 @@
             background: #000;
             border: 1px solid #333;
         }
-        /* If it's a normal video (not a short), we adjust this via JS if needed, 
-           but 9:16 generally fits both safely in a narrow popup */
-        .is-normal-video { padding-bottom: 56.25%; } 
+        .is-normal-video { padding-bottom: 56.25%; } /* Standard 16:9 Ratio */
 
         .video-wrapper iframe {
             position: absolute;
@@ -78,24 +76,24 @@
 
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-    // HELPER: Extracts Video ID from various YouTube URL formats
+    // HELPER: Bulletproof YouTube ID Extractor
     function getYoutubeId(url) {
         if (!url) return null;
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|shorts\/|watch\?v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-        const match = url.match(regex);
-        return (match && match[1]) ? match[1] : null;
+        const str = String(url); // Force it to be a string
+        // Looks specifically for the 11 characters after v=, shorts/, youtu.be/, or embed/
+        const match = str.match(/(?:v=|shorts\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+        return match ? match[1] : null;
     }
 
-const map = new mapboxgl.Map({
-    container: 'map',
-    // Adding ?fresh=true at the end forces Mapbox to bypass the CDN cache
-    style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
-    center: [-7.730883, 54.829779],
-    zoom: 14,
-    pitch: 60,
-    bearing: -20,
-    antialias: true
-});
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
+        center: [-7.730883, 54.829779],
+        zoom: 14,
+        pitch: 60,
+        bearing: -20,
+        antialias: true
+    });
 
     async function getStravaToken() {
         const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
@@ -130,13 +128,13 @@ const map = new mapboxgl.Map({
                 const descHtml = `<div class="trail-desc">${p.Description || p.description || ""}</div>`;
                 const segId = p.segment || p.Segment || p.SEGMENT;
                 
-                // Extract ID from the "Youtube" field
-                const videoId = getYoutubeId(p.Youtube || p.youtube);
+                // SAFELY extract string and ID
+                const rawYoutubeLink = String(p.Youtube || p.youtube || "");
+                const videoId = getYoutubeId(rawYoutubeLink);
                 let videoHtml = '';
 
                 if (videoId) {
-                    // Detect if it's a Short or Normal video to adjust the aspect ratio
-                    const isShort = (p.Youtube || p.youtube).includes('shorts');
+                    const isShort = rawYoutubeLink.toLowerCase().includes('shorts');
                     const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
 
                     videoHtml = `
