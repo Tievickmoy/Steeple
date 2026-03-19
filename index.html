@@ -26,10 +26,9 @@
             overflow-y: auto;
         }
 
-        /* Responsive Video Container (Maintains 16:9 for normal or 9:16 for Shorts) */
         .video-wrapper {
             position: relative;
-            padding-bottom: 177.77%; /* Default to Shorts ratio */
+            padding-bottom: 177.77%; 
             height: 0;
             overflow: hidden;
             border-radius: 8px;
@@ -37,17 +36,10 @@
             background: #000;
             border: 1px solid #333;
         }
-        /* If it's a normal video (not a short), we adjust this via JS if needed, 
-           but 9:16 generally fits both safely in a narrow popup */
         .is-normal-video { padding-bottom: 56.25%; } 
 
         .video-wrapper iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: 0;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
         }
 
         .trail-title { color: #00d2ff; margin: 0 0 12px 0; font-size: 19px; font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 8px; }
@@ -62,12 +54,35 @@
         .mapboxgl-popup-content::-webkit-scrollbar-thumb { background: #fc4c02; border-radius: 10px; }
 
         #loading-msg { color: #fc4c02; font-size: 11px; font-style: italic; text-align: center; padding: 5px 0; }
-        #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; }
+        
+        /* Hint & Feedback UI */
+        #mobile-hint { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; pointer-events: none; border: 1px solid #00d2ff; text-align: center; transition: opacity 1s; }
+
+        #feedback-link {
+            position: fixed;
+            bottom: 25px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(26, 26, 26, 0.9);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #444;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease;
+        }
+        #feedback-link:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
     <div id="mobile-hint">Tap trails for more</div>
     <div id="map"></div>
+    <a id="feedback-link" href="https://forms.gle/3tyvrU9YyezbzeMX6" target="_blank">Feedback</a>
 
 <script>
     const STRAVA_CONFIG = {
@@ -78,24 +93,22 @@
 
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-    // HELPER: Extracts Video ID from various YouTube URL formats
     function getYoutubeId(url) {
         if (!url) return null;
         const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|shorts\/|watch\?v=)|youtu\.be\/)([^"&?\/\s]{11})/;
         const match = url.match(regex);
-        return (match && match[1]) ? match[1] : null;
+        return (match && match) ? match : null;
     }
 
-const map = new mapboxgl.Map({
-    container: 'map',
-    // Adding ?fresh=true at the end forces Mapbox to bypass the CDN cache
-    style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
-    center: [-7.730883, 54.829779],
-    zoom: 14,
-    pitch: 60,
-    bearing: -20,
-    antialias: true
-});
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095?fresh=true',
+        center: [-7.730883, 54.829779],
+        zoom: 14,
+        pitch: 60,
+        bearing: -20,
+        antialias: true
+    });
 
     async function getStravaToken() {
         const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
@@ -121,36 +134,30 @@ const map = new mapboxgl.Map({
         map.on('click', async (e) => {
             const features = map.queryRenderedFeatures([[e.point.x - 15, e.point.y - 15], [e.point.x + 15, e.point.y + 15]]);
             if (features.length > 0) {
-                const p = features[0].properties;
+                const p = features.properties;
                 if (!p.name) return;
 
-                map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
+                map.flyTo({ center: e.lngLat, offset:, speed: 0.6 });
 
                 const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
                 const descHtml = `<div class="trail-desc">${p.Description || p.description || ""}</div>`;
                 const segId = p.segment || p.Segment || p.SEGMENT;
                 
-                // Extract ID from the "Youtube" field
                 const videoId = getYoutubeId(p.Youtube || p.youtube);
                 let videoHtml = '';
 
                 if (videoId) {
-                    // Detect if it's a Short or Normal video to adjust the aspect ratio
                     const isShort = (p.Youtube || p.youtube).includes('shorts');
                     const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
-
                     videoHtml = `
                         <div class="${wrapperClass}">
                             <iframe 
                                 src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0&enablejsapi=1&origin=${window.location.origin}" 
                                 title="YouTube player" 
                                 frameborder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                                sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation allow-presentation"
                                 allowfullscreen>
                             </iframe>
-                        </div>
-                    `;
+                        </div>`;
                 }
 
                 const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
@@ -171,8 +178,7 @@ const map = new mapboxgl.Map({
                                 <div class="s-row"><span class="s-label">Dist</span><span class="s-value">${(s.distance/1000).toFixed(2)}km</span></div>
                                 <div class="s-row"><span class="s-label">Attempts</span><span class="s-value">${s.effort_count.toLocaleString()}</span></div>
                                 <div class="s-row"><span class="s-label">KOM</span><span class="kom-val">${s.xoms?.kom || 'N/A'}</span></div>
-                            </div>
-                        `;
+                            </div>`;
                         popup.setHTML(titleHtml + stravaHtml + videoHtml + descHtml);
                     } catch (err) {
                         popup.setHTML(titleHtml + videoHtml + descHtml);
