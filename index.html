@@ -130,6 +130,20 @@ function resetHintTimer() {
 
 /* Map */
 const map = new mapboxgl.Map({
+
+map.addControl(
+    new mapboxgl.GeolocateControl({
+        positionOptions: {
+            enableHighAccuracy: true
+        },
+        trackUserLocation: true,
+        showUserHeading: true
+    }),
+    'top-right'
+);
+
+
+    
     container: 'map',
     style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095',
    center: [-7.73, 54.83],
