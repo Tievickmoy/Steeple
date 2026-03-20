@@ -69,26 +69,27 @@ html, body {
 .s-row { display: flex; justify-content: space-between; font-size: 12px; }
 
 /* ✨ Mobile Hint */
-#mobile-hint {
-    position: absolute;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%) translateY(10px);
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(6px);
-    color: #fff;
-    padding: 12px 22px;
-    border-radius: 30px;
-    font-size: 13px;
-    border: 1px solid #00d2ff;
-    opacity: 0;
-    transition: opacity 0.6s ease, transform 0.6s ease;
-    pointer-events: none;
+const hint = document.getElementById('mobile-hint');
+let hintTimeout;
+
+/* Show hint */
+function showHint() {
+    hint.classList.add('show');
 }
 
-#mobile-hint.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+/* Hide hint */
+function hideHint() {
+    hint.classList.remove('show');
+}
+
+/* Reset inactivity timer */
+function resetHintTimer() {
+    clearTimeout(hintTimeout);
+    hideHint();
+
+    hintTimeout = setTimeout(() => {
+        showHint();
+    }, 10000);
 }
 
 /* Feedback */
@@ -159,7 +160,10 @@ map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 map.on('load', () => {
 
     /* Initial hint */
-    showHint();
+map.on('load', () => {
+
+    /* Show initially */
+    setTimeout(showHint, 1000);
 
     /* Hide on first interaction */
     map.once('click', hideHint);
@@ -170,13 +174,7 @@ map.on('load', () => {
     map.on('move', resetHintTimer);
     map.on('touchstart', resetHintTimer);
 
-    map.on('click', async (e) => {
-
-        const features = map.queryRenderedFeatures(e.point);
-        if (!features.length) return;
-
-        const p = features[0].properties;
-        if (!p.name) return;
+});
 
         map.flyTo({
             center: e.lngLat,
