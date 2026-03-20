@@ -16,6 +16,7 @@ html, body {
     overflow: hidden;
     background: #000;
 }
+
 #map {
     position: absolute;
     top: 0;
@@ -59,37 +60,26 @@ html, body {
 .trail-title { color: #00d2ff; font-size: 18px; font-weight: 700; }
 .trail-desc { font-size: 13px; color: #ccc; margin-top: 10px; }
 
-/* Strava */
-.strava-container {
-    background: rgba(252,76,2,0.1);
-    border: 1px solid rgba(252,76,2,0.3);
-    border-radius: 8px;
-    padding: 10px;
-}
-.s-row { display: flex; justify-content: space-between; font-size: 12px; }
-
-/* ✨ Mobile Hint */
-const hint = document.getElementById('mobile-hint');
-let hintTimeout;
-
-/* Show hint */
-function showHint() {
-    hint.classList.add('show');
-}
-
-/* Hide hint */
-function hideHint() {
-    hint.classList.remove('show');
+/* Hint */
+#mobile-hint {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 30px;
+    font-size: 13px;
+    border: 1px solid #00d2ff;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
 }
 
-/* Reset inactivity timer */
-function resetHintTimer() {
-    clearTimeout(hintTimeout);
-    hideHint();
-
-    hintTimeout = setTimeout(() => {
-        showHint();
-    }, 10000);
+#mobile-hint.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 /* Feedback */
@@ -116,36 +106,28 @@ function resetHintTimer() {
 <script>
 mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-/* Detect mobile */
-const isMobile = window.innerWidth < 768;
-
 /* Hint logic */
 const hint = document.getElementById('mobile-hint');
 let hintTimeout;
 
-/* Show hint */
 function showHint() {
-    if (!isMobile) return;
     hint.classList.add('show');
 }
 
-/* Hide hint */
 function hideHint() {
     hint.classList.remove('show');
 }
 
-/* Reset inactivity timer */
 function resetHintTimer() {
-    if (!isMobile) return;
-
     clearTimeout(hintTimeout);
     hideHint();
 
     hintTimeout = setTimeout(() => {
         showHint();
-    }, 10000); // reappear after 10s idle
+    }, 10000);
 }
 
+/* Map */
 const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095',
@@ -159,10 +141,7 @@ map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
 map.on('load', () => {
 
-    /* Initial hint */
-map.on('load', () => {
-
-    /* Show initially */
+    /* Show hint after short delay */
     setTimeout(showHint, 1000);
 
     /* Hide on first interaction */
@@ -174,7 +153,13 @@ map.on('load', () => {
     map.on('move', resetHintTimer);
     map.on('touchstart', resetHintTimer);
 
-});
+    /* Click trails */
+    map.on('click', (e) => {
+        const features = map.queryRenderedFeatures(e.point);
+        if (!features.length) return;
+
+        const p = features[0].properties;
+        if (!p.name) return;
 
         map.flyTo({
             center: e.lngLat,
@@ -194,9 +179,13 @@ map.on('load', () => {
             `;
         }
 
-        let html = `<h3 class="trail-title">${p.name}</h3>${videoHtml}<div class="trail-desc">${p.description || ''}</div>`;
+        const html = `
+            <h3 class="trail-title">${p.name}</h3>
+            ${videoHtml}
+            <div class="trail-desc">${p.description || ''}</div>
+        `;
 
-        const popup = new mapboxgl.Popup({ offset: 15 })
+        new mapboxgl.Popup({ offset: 15 })
             .setLngLat(e.lngLat)
             .setHTML(html)
             .addTo(map);
