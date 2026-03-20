@@ -24,7 +24,6 @@ html, body {
     width: 100%;
 }
 
-/* Popup */
 .mapboxgl-popup { max-width: 320px !important; }
 .mapboxgl-popup-content {
     background: #1a1a1a;
@@ -37,7 +36,6 @@ html, body {
     overflow-y: auto;
 }
 
-/* Video */
 .video-wrapper {
     position: relative;
     padding-bottom: 177.77%;
@@ -47,6 +45,7 @@ html, body {
     margin: 12px 0;
     background: #000;
 }
+
 .is-normal-video { padding-bottom: 56.25%; }
 
 .video-wrapper iframe {
@@ -56,16 +55,29 @@ html, body {
     border: 0;
 }
 
-/* Text */
-.trail-title { color: #00d2ff; font-size: 18px; font-weight: 700; }
-.trail-desc { font-size: 13px; color: #ccc; margin-top: 10px; }
+.trail-title { color: #00d2ff; font-size: 18px; font-weight: 700; margin: 0 0 10px 0; }
+.trail-desc { font-size: 13px; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
 
-/* Hint */
+.strava-container {
+    background: rgba(252, 76, 2, 0.1);
+    border: 1px solid rgba(252, 76, 2, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 5px;
+}
+
+.s-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
+.s-label { color: #888; font-size: 10px; text-transform: uppercase; }
+.s-value { color: #fff; font-weight: bold; }
+.kom-val { color: #ffcc00; font-weight: bold; }
+
+#loading-msg { color: #fc4c02; font-size: 11px; text-align: center; padding: 5px 0; }
+
 #mobile-hint {
     position: absolute;
     bottom: 100px;
     left: 50%;
-    transform: translateX(-50%) translateY(10px);
+    transform: translateX(-50%);
     background: rgba(0,0,0,0.75);
     color: #fff;
     padding: 12px 22px;
@@ -73,17 +85,13 @@ html, body {
     font-size: 13px;
     border: 1px solid #00d2ff;
     opacity: 0;
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity 0.5s ease;
     pointer-events: none;
     z-index: 9999;
 }
 
-#mobile-hint.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-}
+#mobile-hint.show { opacity: 1; }
 
-/* Feedback */
 #feedback-link {
     position: fixed;
     top: 15px;
@@ -107,105 +115,112 @@ html, body {
 <script>
 mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
 
-/* Hint logic */
-const hint = document.getElementById('mobile-hint');
-let hintTimeout;
+const STRAVA_CONFIG = {
+    clientId: '213106',
+    clientSecret: '1a482e4253732794bd882dc298c7b7132bd3321f',
+    refreshToken: '872351372af0ebffffaa1584f5eaac57b5c4c7ad'
+};
 
-function showHint() {
-    hint.classList.add('show');
+async function getStravaToken() {
+    const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            client_id: STRAVA_CONFIG.clientId,
+            client_secret: STRAVA_CONFIG.clientSecret,
+            refresh_token: STRAVA_CONFIG.refreshToken,
+            grant_type: 'refresh_token'
+        })
+    });
+    const d = await res.json();
+    return d.access_token;
 }
 
-function hideHint() {
-    hint.classList.remove('show');
+function getYoutubeId(url) {
+    if (!url) return null;
+    const regex = /(?:youtube\.com\/(?:.*v=|.*\/|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
 }
 
-function resetHintTimer() {
-    clearTimeout(hintTimeout);
-    hideHint();
-
-    hintTimeout = setTimeout(() => {
-        showHint();
-    }, 10000);
-}
-
-/* Map */
 const map = new mapboxgl.Map({  
     container: 'map',
     style: 'mapbox://styles/steeplechaser/cmmp5mnp2007f01s3dtml6095',
-   center: [-7.73, 54.83],
+    center: [-7.73, 54.83],
     zoom: 13.5,
     pitch: 50,
     bearing: 0
 });
 
 map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-
-                                        map.addControl(
-                                            new mapboxgl.GeolocateControl({
-                                                positionOptions: {
-                                                    enableHighAccuracy: true
-                                                },
-                                                trackUserLocation: true,
-                                                showUserHeading: true
-                                            }),
-                                            'top-right'
-                                        );
-
-
-
-    
+map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
 
 map.on('load', () => {
 
-    /* Show hint after short delay */
-    setTimeout(showHint, 1000);
+    setTimeout(() => {
+        const hint = document.getElementById('mobile-hint');
+        hint.classList.add('show');
+        setTimeout(() => hint.classList.remove('show'), 5000);
+    }, 1000);
 
-    /* Hide on first interaction */
-    map.once('click', hideHint);
-    map.once('touchstart', hideHint);
-
-    /* Track activity */
-    map.on('click', resetHintTimer);
-    map.on('move', resetHintTimer);
-    map.on('touchstart', resetHintTimer);
-
-    /* Click trails */
-    map.on('click', (e) => {
+    map.on('click', async (e) => {
         const features = map.queryRenderedFeatures(e.point);
         if (!features.length) return;
 
         const p = features[0].properties;
         if (!p.name) return;
 
-        map.flyTo({
-            center: e.lngLat,
-            offset: [0, 120],
-            speed: 0.6
-        });
+        map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
 
-        const videoId = getYoutubeId(p.youtube);
+        const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
+        const descHtml = `<div class="trail-desc">${p.description || p.Description || ''}</div>`;
+
+        const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
+            .setLngLat(e.lngLat)
+            .setHTML(titleHtml + `<div id="loading-msg">Fetching Strava Data...</div>`)
+            .addTo(map);
+
+        // Video
+        const videoId = getYoutubeId(p.youtube || p.Youtube);
         let videoHtml = '';
-
         if (videoId) {
-            const isShort = (p.youtube || '').includes('shorts');
+            const isShort = (p.youtube || p.Youtube || '').includes('shorts');
+            const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
             videoHtml = `
-                <div class="video-wrapper ${isShort ? '' : 'is-normal-video'}">
-                    <iframe src="https://www.youtube-nocookie.com/embed/${videoId}" allowfullscreen></iframe>
+                <div class="${wrapperClass}">
+                    <iframe src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0"
+                        allowfullscreen></iframe>
                 </div>
             `;
         }
 
-        const html = `
-            <h3 class="trail-title">${p.name}</h3>
-            ${videoHtml}
-            <div class="trail-desc">${p.description || ''}</div>
-        `;
+        const segId = p.segment || p.Segment || p.SEGMENT;
 
-        new mapboxgl.Popup({ offset: 15 })
-            .setLngLat(e.lngLat)
-            .setHTML(html)
-            .addTo(map);
+        let finalHtml = titleHtml + videoHtml + descHtml;
+
+        if (segId) {
+            try {
+                const token = await getStravaToken();
+                const sRes = await fetch(`https://www.strava.com/api/v3/segments/${segId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const s = await sRes.json();
+
+                const stravaHtml = `
+                    <div class="strava-container">
+                        <div class="s-row"><span class="s-label">Dist</span><span class="s-value">${(s.distance/1000).toFixed(2)} km</span></div>
+                        <div class="s-row"><span class="s-label">Attempts</span><span class="s-value">${s.effort_count?.toLocaleString() || 'N/A'}</span></div>
+                        <div class="s-row"><span class="s-label">KOM</span><span class="kom-val">${s.xoms?.kom || 'N/A'}</span></div>
+                    </div>
+                `;
+
+                finalHtml = titleHtml + stravaHtml + videoHtml + descHtml;
+            } catch (err) {
+                finalHtml = titleHtml + videoHtml + descHtml;
+            }
+        }
+
+        popup.setHTML(finalHtml);
     });
 
     map.on('mousemove', (e) => {
@@ -213,13 +228,6 @@ map.on('load', () => {
         map.getCanvas().style.cursor = f.length ? 'pointer' : '';
     });
 });
-
-/* YouTube helper */
-function getYoutubeId(url) {
-    if (!url) return null;
-    const match = url.match(/(?:youtu\.be\/|v=|shorts\/)([^"&?\/\s]{11})/);
-    return match ? match[1] : null;
-}
 </script>
 
 </body>
