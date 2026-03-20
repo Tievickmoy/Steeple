@@ -67,26 +67,35 @@ html, body {
     padding: 10px;
 }
 .s-row { display: flex; justify-content: space-between; font-size: 12px; }
-.s-label { color: #888; }
-.s-value { font-weight: bold; }
 
-/* Hint */
+/* ✨ Mobile Hint */
 #mobile-hint {
     position: absolute;
     bottom: 100px;
     left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
     color: #fff;
-    padding: 10px 20px;
-    border-radius: 25px;
+    padding: 12px 22px;
+    border-radius: 30px;
+    font-size: 13px;
+    border: 1px solid #00d2ff;
+    opacity: 0;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    pointer-events: none;
 }
 
-/* Feedback button */
+#mobile-hint.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Feedback */
 #feedback-link {
     position: fixed;
     top: 15px;
-    right: 15px;
+    left: 15px;
     background: rgba(26,26,26,0.9);
     color: #fff;
     padding: 10px 16px;
@@ -104,33 +113,36 @@ html, body {
 <a id="feedback-link" href="https://forms.gle/3tyvrU9YyezbzeMX6" target="_blank">Get in touch</a>
 
 <script>
-mapboxgl.accessToken = 'pk.eyJ1Ijoic3RlZXBsZWNoYXNlciIsImEiOiJjbW10am4yYjIwMXgwMnFzYTBvdHZwb3VkIn0.Khr0X4QAJNIb18p-EIE-Eg';
+mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
 
-const STRAVA_CONFIG = {
-    clientId: '213106',
-    clientSecret: 'YOUR_SECRET',
-    refreshToken: 'YOUR_REFRESH'
-};
+/* Detect mobile */
+const isMobile = window.innerWidth < 768;
 
-function getYoutubeId(url) {
-    if (!url) return null;
-    const match = url.match(/(?:youtu\.be\/|v=|shorts\/)([^"&?\/\s]{11})/);
-    return match ? match[1] : null;
+/* Hint logic */
+const hint = document.getElementById('mobile-hint');
+let hintTimeout;
+
+/* Show hint */
+function showHint() {
+    if (!isMobile) return;
+    hint.classList.add('show');
 }
 
-async function getStravaToken() {
-    const res = await fetch('https://www.strava.com/api/v3/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            client_id: STRAVA_CONFIG.clientId,
-            client_secret: STRAVA_CONFIG.clientSecret,
-            refresh_token: STRAVA_CONFIG.refreshToken,
-            grant_type: 'refresh_token'
-        })
-    });
-    const data = await res.json();
-    return data.access_token;
+/* Hide hint */
+function hideHint() {
+    hint.classList.remove('show');
+}
+
+/* Reset inactivity timer */
+function resetHintTimer() {
+    if (!isMobile) return;
+
+    clearTimeout(hintTimeout);
+    hideHint();
+
+    hintTimeout = setTimeout(() => {
+        showHint();
+    }, 10000); // reappear after 10s idle
 }
 
 const map = new mapboxgl.Map({
@@ -146,9 +158,17 @@ map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
 map.on('load', () => {
 
-    setTimeout(() => {
-        document.getElementById('mobile-hint').style.display = 'none';
-    }, 4000);
+    /* Initial hint */
+    showHint();
+
+    /* Hide on first interaction */
+    map.once('click', hideHint);
+    map.once('touchstart', hideHint);
+
+    /* Track activity */
+    map.on('click', resetHintTimer);
+    map.on('move', resetHintTimer);
+    map.on('touchstart', resetHintTimer);
 
     map.on('click', async (e) => {
 
@@ -182,38 +202,20 @@ map.on('load', () => {
             .setLngLat(e.lngLat)
             .setHTML(html)
             .addTo(map);
-
-        if (p.segment) {
-            popup.setHTML(html + "<div>Loading Strava...</div>");
-
-            try {
-                const token = await getStravaToken();
-                const res = await fetch(`https://www.strava.com/api/v3/segments/${p.segment}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const s = await res.json();
-
-                const stravaHtml = `
-                    <div class="strava-container">
-                        <div class="s-row"><span>Distance</span><span>${(s.distance/1000).toFixed(2)} km</span></div>
-                        <div class="s-row"><span>Attempts</span><span>${s.effort_count}</span></div>
-                    </div>
-                `;
-
-                popup.setHTML(html + stravaHtml);
-
-            } catch {
-                popup.setHTML(html);
-            }
-        }
     });
 
     map.on('mousemove', (e) => {
         const f = map.queryRenderedFeatures(e.point);
         map.getCanvas().style.cursor = f.length ? 'pointer' : '';
     });
-
 });
+
+/* YouTube helper */
+function getYoutubeId(url) {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|v=|shorts\/)([^"&?\/\s]{11})/);
+    return match ? match[1] : null;
+}
 </script>
 
 </body>
