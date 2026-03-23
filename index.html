@@ -152,9 +152,22 @@ const map = new mapboxgl.Map({
     bearing: 0
 });
 
-map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
 
+    
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    
+    
+    
+//map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
+map.addControl(new mapboxgl.GeolocateControl({
+    positionOptions: {
+        enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true // This adds the little arrow showing which way they are facing
+}), 'top-right');
+    
 map.on('load', () => {
 
     setTimeout(() => {
