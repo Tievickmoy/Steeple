@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -152,22 +152,14 @@ const map = new mapboxgl.Map({
     bearing: 0
 });
 
-
-    
 map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    
-    
-    
-//map.addControl(new mapboxgl.GeolocateControl({ trackUserLocation: true }), 'top-right');
 map.addControl(new mapboxgl.GeolocateControl({
-    positionOptions: {
-        enableHighAccuracy: true
-    },
+    positionOptions: { enableHighAccuracy: true },
     trackUserLocation: true,
-    showUserHeading: true // This adds the little arrow showing which way they are facing
+    showUserHeading: true
 }), 'top-right');
-    
+
 map.on('load', () => {
 
     setTimeout(() => {
@@ -177,45 +169,54 @@ map.on('load', () => {
     }, 1000);
 
     map.on('click', async (e) => {
-       const features = map.queryRenderedFeatures(
-    [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]]
-);
+
+        // ✅ 1. CHECK CAR PARKS FIRST (specific layer)
+        const carparkFeatures = map.queryRenderedFeatures(e.point, {
+            layers: ['carparks']
+        });
+
+        if (carparkFeatures.length) {
+            const p = carparkFeatures[0].properties;
+
+            const name = p.Name || 'Car Park';
+            const desc = p.Description || '';
+
+            map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
+
+            new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                    <h3 class="trail-title">${name}</h3>
+                    <div class="trail-desc">${desc}</div>
+                `)
+                .addTo(map);
+
+            return;
+        }
+
+        // ✅ 2. TRAILS (fallback)
+        const features = map.queryRenderedFeatures(
+            [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]]
+        );
+
         if (!features.length) return;
 
-const p = features[0].properties;
-if (!p.name) return;
-
-const isCarpark = p.Type === 'carpark' || p.type === 'carpark';
-
-        if (isCarpark) {
-    map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
-
-    const html = `
-        <h3 class="trail-title">${p.name}</h3>
-        <div class="trail-desc">${p.Description || p.description || ''}</div>
-    `;
-
-    new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
-        .setLngLat(e.lngLat)
-        .setHTML(html)
-        .addTo(map);
-
-    return; // 🚫 stop here so trails logic doesn't run
-}
+        const p = features[0].properties;
+        if (!p.name) return;
 
         map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
 
         const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
-        const descHtml = `<div class="trail-desc">${p.description || p.Description || ''}</div>`;
+        const descHtml = `<div class="trail-desc">${p.description || ''}</div>`;
 
         const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
             .setLngLat(e.lngLat)
             .setHTML(titleHtml + `<div id="loading-msg">Fetching Strava Data...</div>`)
             .addTo(map);
 
-        // Video
         const videoId = getYoutubeId(p.youtube || p.Youtube);
         let videoHtml = '';
+
         if (videoId) {
             const isShort = (p.youtube || p.Youtube || '').includes('shorts');
             const wrapperClass = isShort ? 'video-wrapper' : 'video-wrapper is-normal-video';
@@ -256,10 +257,11 @@ const isCarpark = p.Type === 'carpark' || p.type === 'carpark';
         popup.setHTML(finalHtml);
     });
 
-map.on('mousemove', (e) => {
-    const f = map.queryRenderedFeatures(e.point);
-    map.getCanvas().style.cursor = f.length ? 'pointer' : '';
-});
+    map.on('mousemove', (e) => {
+        const f = map.queryRenderedFeatures(e.point);
+        map.getCanvas().style.cursor = f.length ? 'pointer' : '';
+    });
+
 });
 </script>
 
