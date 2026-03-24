@@ -182,8 +182,26 @@ map.on('load', () => {
 );
         if (!features.length) return;
 
-        const p = features[0].properties;
-        if (!p.name) return;
+const p = features[0].properties;
+if (!p.name) return;
+
+const isCarpark = p.Type === 'carpark' || p.type === 'carpark';
+
+        if (isCarpark) {
+    map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
+
+    const html = `
+        <h3 class="trail-title">${p.name}</h3>
+        <div class="trail-desc">${p.Description || p.description || ''}</div>
+    `;
+
+    new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
+        .setLngLat(e.lngLat)
+        .setHTML(html)
+        .addTo(map);
+
+    return; // 🚫 stop here so trails logic doesn't run
+}
 
         map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
 
