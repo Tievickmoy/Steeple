@@ -238,48 +238,9 @@ map.on('load', () => {
         popup.setHTML(finalHtml);
     });
 
-let hoveredFeature = null;
-
 map.on('mousemove', (e) => {
-    const features = map.queryRenderedFeatures(
-        [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]]
-    ).filter(f => f.properties && f.properties.name);
-
-    if (features.length) {
-        const f = features[0];
-
-        map.getCanvas().style.cursor = 'pointer';
-
-        // remove previous hover
-        if (hoveredFeature) {
-            map.setFeatureState(
-                { source: hoveredFeature.source, id: hoveredFeature.id },
-                { hover: false }
-            );
-        }
-
-        hoveredFeature = f;
-
-        // set new hover
-        if (f.id !== undefined) {
-            map.setFeatureState(
-                { source: f.source, id: f.id },
-                { hover: true }
-            );
-        }
-
-    } else {
-        map.getCanvas().style.cursor = '';
-
-        if (hoveredFeature) {
-            map.setFeatureState(
-                { source: hoveredFeature.source, id: hoveredFeature.id },
-                { hover: false }
-            );
-        }
-
-        hoveredFeature = null;
-    }
+    const f = map.queryRenderedFeatures(e.point);
+    map.getCanvas().style.cursor = f.length ? 'pointer' : '';
 });
 });
 </script>
