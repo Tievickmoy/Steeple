@@ -177,7 +177,9 @@ map.on('load', () => {
     }, 1000);
 
     map.on('click', async (e) => {
-        const features = map.queryRenderedFeatures(e.point);
+       const features = map.queryRenderedFeatures(
+    [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]]
+);
         if (!features.length) return;
 
         const p = features[0].properties;
