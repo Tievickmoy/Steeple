@@ -179,16 +179,20 @@ map.on('load', () => {
             const p = carparkFeatures[0].properties;
 
             const name = p.Name || 'Car Park';
+            const imgUrl = p.img;
             const desc = p.Description || '';
 
             map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
 
             new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
                 .setLngLat(e.lngLat)
-                .setHTML(`
-                    <h3 class="trail-title">${name}</h3>
-                    <div class="trail-desc">${desc}</div>
-                `)
+         .setHTML(`
+    <h3 class="trail-title">${name}</h3>
+
+    ${imgUrl ? `<img src="${imgUrl}" class="carpark-img">` : ''}
+
+    <div class="trail-desc">${desc}</div>
+`)
                 .addTo(map);
 
             return;
