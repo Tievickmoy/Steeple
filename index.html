@@ -84,8 +84,10 @@ html, body {
 
 #mobile-hint {
     position: absolute;
-    bottom: 100px;
+    top: 100px;
     left: 50%;
+    width: 90%;
+    max-width: 600px;
     transform: translateX(-50%);
     background: rgba(0,0,0,0.75);
     color: #fff;
@@ -174,12 +176,12 @@ map.on('load', () => {
     setTimeout(() => {
         const hint = document.getElementById('mobile-hint');
         hint.classList.add('show');
-        setTimeout(() => hint.classList.remove('show'), 5000);
+        setTimeout(() => hint.classList.remove('show'), 9000);
     }, 1000);
 
     map.on('click', async (e) => {
 
-        // ✅ 1. CHECK CAR PARKS FIRST (specific layer)
+  
         const carparkFeatures = map.queryRenderedFeatures(e.point, {
             layers: ['carparks']
         });
@@ -207,7 +209,7 @@ map.on('load', () => {
             return;
         }
 
-        // ✅ 2. TRAILS (fallback)
+    
         const features = map.queryRenderedFeatures(
             [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]]
         );
