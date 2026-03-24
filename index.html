@@ -207,7 +207,7 @@ map.on('load', () => {
         map.flyTo({ center: e.lngLat, offset: [0, 120], speed: 0.6 });
 
         const titleHtml = `<h3 class="trail-title">${p.name}</h3>`;
-        const descHtml = `<div class="trail-desc">${p.description || ''}</div>`;
+        const descHtml = `<div class="trail-desc">${p.Description || ''}</div>`;
 
         const popup = new mapboxgl.Popup({ anchor: 'bottom', offset: 15 })
             .setLngLat(e.lngLat)
